@@ -1,0 +1,14 @@
+{
+  "name": "ai-companion-shelf",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Eight interactive chibi companions, with an optional wallpaper and Dream Skin adapter.",
+  "license": "SEE LICENSE IN LICENSE-CODE",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/build-distribution.mjs",
+    "prepreview": "node scripts/build-distribution.mjs --preview-only",
+    "preview": "node scripts/preview-server.mjs --dist",
+    "pack:release": "python scripts/package-release.py"
+  }
+}

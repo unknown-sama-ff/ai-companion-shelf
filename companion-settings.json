@@ -1,0 +1,4 @@
+{
+  "characters": ["big-fish", "grok", "claude", "gemini", "qwen", "zai", "kimi", "gpt"],
+  "layout": { "characterWidth": 56, "gap": -8, "rightInset": 8, "overlap": 3 }
+}

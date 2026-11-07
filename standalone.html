@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>八小只 · Companion Shelf</title>
+  <style>
+    :root{color-scheme:light;font:15px/1.6 system-ui,"Microsoft YaHei",sans-serif;color:#292431;background:#fbfaff}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh}button,input,textarea{font:inherit}
+    button{cursor:pointer;border:1px solid #ddd2e9;border-radius:12px;padding:8px 14px;background:#fff9;color:#62437f}
+    button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid #8970ae;outline-offset:3px}
+    .layout{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:100vh}
+    aside{padding:28px 22px;background:#faf8ffdc;border-right:1px solid #e0d8e9;backdrop-filter:blur(14px)}
+    h1{font-size:25px;margin:0 0 4px}h2{font-size:15px;margin:25px 0 10px}.muted{color:#706879;font-size:13px}
+    .choices{display:grid;grid-template-columns:1fr 1fr;gap:9px}.choices label{display:flex;align-items:center;gap:5px}
+    input[type=checkbox]{accent-color:#62437f}input[type=range]{width:100%;accent-color:#8970ae}
+    aside button{margin:4px 3px 4px 0}.file{display:block;cursor:pointer;padding:8px 0;color:#62437f}
+    main{min-width:0;display:flex;flex-direction:column;padding:32px max(24px,5vw);gap:22px}
+    header{display:flex;justify-content:space-between;align-items:center}.badge{color:#62437f;background:#f1edf9c9;border-radius:30px;padding:5px 13px;font-size:12px}
+    .conversation{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:18px;padding-bottom:40px}
+    .bubble{padding:18px 23px;background:#ffffffc9;backdrop-filter:blur(10px);border:1px solid #e0d8e9;border-radius:20px;max-width:650px}
+    .bubble h2{font-size:30px;line-height:1.35;margin:0 0 15px}.bubble p{margin:0}.sent{align-self:flex-end;background:#f1edf9d9}
+    .composer{position:relative;background:#ffffffcc;backdrop-filter:blur(12px);border:1px solid #e0d8e9;border-radius:24px;padding:16px 18px;min-height:110px}
+    textarea{display:block;resize:vertical;width:100%;min-height:45px;max-height:180px;background:none;border:0;color:inherit;outline:none}
+    .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}.send{background:#62437f;color:white;border:0;border-radius:50%;width:34px;height:34px;padding:0}
+    footer{font-size:12px;color:#706879;text-align:center}#status{min-height:42px}a{color:#62437f}
+    @media(max-width:760px){.layout{grid-template-columns:1fr}aside{padding:16px 20px;border-right:0;border-bottom:1px solid #e0d8e9}.choices{grid-template-columns:repeat(4,1fr)}main{padding:22px 18px;min-height:580px}aside h2{margin-top:12px}.bubble h2{font-size:25px}}
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>八小只</h1><div class="muted">Companion Shelf · 随你搭配</div>
+      <h2>选择同伴</h2><div class="choices" id="choices"></div>
+      <h2>背景</h2><label><input id="wallpaper-enabled" type="checkbox" checked> 显示壁纸</label>
+      <label class="file">换成自己的图片 <input id="wallpaper-file" type="file" accept="image/*" hidden></label>
+      <button id="restore-wallpaper" type="button">恢复默认壁纸</button>
+      <h2>角色大小</h2><label class="muted" for="size">宽度 <output id="size-label">56</output> px</label>
+      <input id="size" type="range" min="32" max="88" value="56" step="2">
+      <h2>动作预览</h2><button id="play" type="button">一起活动</button><button id="stop" type="button">完成收尾</button>
+      <p id="status" class="muted" role="status">正在准备同伴…</p>
+      <div class="muted">鼠标停留时持续活动；移开后完成收尾。也可以用 Tab 键选择角色。</div>
+    </aside>
+    <main>
+      <header><strong>今天，也一起做点有意思的事。</strong><span class="badge">白龙娘 · 浅紫</span></header>
+      <section class="conversation" id="conversation" aria-label="演示对话">
+        <div class="bubble"><h2>灵感来的时候，<br>我们都在。</h2><p>选择你喜欢的同伴，轻轻靠近，让它们活动一下。</p></div>
+      </section>
+      <form class="composer" id="composer" aria-label="聊天输入框">
+        <label for="message" hidden>输入演示消息</label><textarea id="message" rows="2" placeholder="写点什么，让灵感开始生长…"></textarea>
+        <div class="toolbar"><span class="muted">本地演示 · 消息留在此页面</span><button class="send" aria-label="添加演示消息">↑</button></div>
+      </form>
+      <footer>八位同伴，安静陪伴。</footer>
+    </main>
+  </div>
+  <!-- COMPANION_SCRIPTS -->
+  <script>
+    (async () => {
+      const data = await CompanionShelf.loadData();
+      const choices = document.querySelector('#choices');
+      let shelf, generation = 0, customUrl, restoreWallpaper;
+      const selected = new Set(data.characters.map(c => c.id));
+      const ids = () => data.characters.filter(c => selected.has(c.id)).map(c => c.id);
+      for (const character of data.characters) {
+        const label = document.createElement('label');
+        const input = document.createElement('input'); input.type = 'checkbox'; input.checked = true;
+        input.addEventListener('change', () => { input.checked ? selected.add(character.id) : selected.delete(character.id); render(); });
+        label.append(input, character.name); choices.append(label);
+      }
+      function wallpaper() {
+        restoreWallpaper?.();
+        restoreWallpaper = CompanionShelf.setWallpaper(document.querySelector('#wallpaper-enabled').checked ? customUrl || data.theme?.image : null);
+      }
+      async function render() {
+        const request = ++generation;
+        shelf?.destroy(); shelf = null;
+        if (!selected.size) { document.querySelector('#status').textContent = '选择任意一位同伴即可开始。'; return; }
+        const instance = await CompanionShelf.mount({ data, target: '#composer', characters: ids(), layout: { characterWidth: Number(document.querySelector('#size').value) } });
+        if (request !== generation) { instance.destroy(); return; }
+        shelf = instance;
+        document.querySelector('#status').textContent = `已选择 ${selected.size} 位同伴，鼠标移上即可活动。`;
+      }
+      document.querySelector('#wallpaper-enabled').addEventListener('change', wallpaper);
+      document.querySelector('#wallpaper-file').addEventListener('change', event => {
+        const file = event.target.files[0]; if (!file) return;
+        if (customUrl) URL.revokeObjectURL(customUrl); customUrl = URL.createObjectURL(file);
+        document.querySelector('#wallpaper-enabled').checked = true; wallpaper();
+      });
+      document.querySelector('#restore-wallpaper').addEventListener('click', () => {
+        if (customUrl) URL.revokeObjectURL(customUrl); customUrl = null;
+        document.querySelector('#wallpaper-file').value = ''; document.querySelector('#wallpaper-enabled').checked = true; wallpaper();
+      });
+      document.querySelector('#size').addEventListener('input', () => { document.querySelector('#size-label').textContent = document.querySelector('#size').value; render(); });
+      document.querySelector('#play').addEventListener('click', () => ids().forEach(id => shelf?.setActive(id, true)));
+      document.querySelector('#stop').addEventListener('click', () => ids().forEach(id => shelf?.setActive(id, false)));
+      document.querySelector('#composer').addEventListener('submit', event => {
+        event.preventDefault(); const input = document.querySelector('#message'); if (!input.value.trim()) return;
+        const bubble = document.createElement('div'); bubble.className = 'bubble sent'; bubble.textContent = input.value.trim();
+        document.querySelector('#conversation').append(bubble); input.value = '';
+      });
+      wallpaper(); await render();
+    })().catch(error => { document.querySelector('#status').textContent = `加载失败：${error.message}`; });
+  </script>
+</body>
+</html>

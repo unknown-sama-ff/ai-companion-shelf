@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "white-dragon-lavender",
+  "name": "白龙娘 · 浅紫",
+  "appearance": "light",
+  "art": {
+    "focusX": 1,
+    "focusY": 0.5,
+    "safeArea": "none",
+    "taskMode": "ambient"
+  },
+  "colors": {
+    "background": "rgba(251, 250, 255, 0.3)",
+    "panel": "#FAF8FF",
+    "panelAlt": "#F1EDF9",
+    "accent": "#8970AE",
+    "accentAlt": "#62437F",
+    "secondary": "#A27CBA",
+    "highlight": "#D9CBEA",
+    "text": "#292431",
+    "muted": "#706879",
+    "line": "#E0D8E9"
+  },
+  "image": "wallpaper.png"
+}
