@@ -396,6 +396,7 @@
       const listeners = [];
       const timers = new Set();
       const states = [];
+      const observedNotices = new Set();
       let composer = null;
       let reservation = null;
       let destroyed = false;
@@ -632,6 +633,33 @@
         });
       }
 
+      function avoidComposerNotices(rect, bottom, height) {
+        const selector = config.avoidSelector || '[data-companion-avoid], [data-composer-rail][data-composer-rail-placement="above"], [data-above-composer-portal]';
+        const nativeRoot = composer.closest('[data-codex-composer-root]');
+        const notices = [...(nativeRoot?.querySelectorAll?.(selector) || doc.querySelectorAll(selector))]
+          .filter((node) => node !== composer && !composer.contains?.(node) && isVisible(node));
+        const current = new Set(notices);
+        for (const previous of observedNotices) {
+          if (!current.has(previous)) {
+            resizeObserver?.unobserve?.(previous);
+            observedNotices.delete(previous);
+          }
+        }
+        for (const node of notices) {
+          if (!observedNotices.has(node)) {
+            resizeObserver?.observe(node);
+            observedNotices.add(node);
+          }
+        }
+        const bounds = notices.map((node) => node.getBoundingClientRect()).sort((a, b) => b.bottom - a.bottom);
+        for (const notice of bounds) {
+          if (notice.right <= rect.left || notice.left >= rect.right) continue;
+          if (notice.top >= bottom || notice.bottom <= bottom - height - 6) continue;
+          bottom = Math.min(bottom, notice.top - 6);
+        }
+        return bottom;
+      }
+
       function restoreComposerSpace() {
         if (!reservation) return;
         const { element, originalValue, originalPriority, appliedValue, appliedPriority } = reservation;
@@ -685,10 +713,10 @@
         const seatTop = reserveRoot
           ? reserveRoot.getBoundingClientRect().top + (Number.parseFloat(reserveStyle.paddingTop) || 0) + (Number.parseFloat(reserveStyle.borderTopWidth) || 0)
           : rect.top;
-        const bottom = seatTop + (reserveRoot ? 0 : overlap);
-        const availableHeight = Math.max(0, bottom - viewportTop - 8);
         const largestVisualRatio = Math.max(1, ...states.map((state) => state.ratio * (state.dream ? 1.25 : 1)));
         const requestedWidth = config.characterWidth || 56;
+        const bottom = avoidComposerNotices(rect, seatTop + (reserveRoot ? 0 : overlap), requestedWidth * largestVisualRatio);
+        const availableHeight = Math.max(0, bottom - viewportTop - 8);
         const requestedAdvance = Math.max(8, requestedWidth + (config.gap ?? -8));
         const rightInset = Math.max(0, config.rightInset ?? 8);
         const requestedRowWidth = requestedWidth + (Math.max(1, states.length) - 1) * requestedAdvance;
@@ -741,6 +769,7 @@
         const next = findComposer();
         if (next !== composer) {
           resizeObserver?.disconnect();
+          observedNotices.clear();
           composer = next;
           if (composer) resizeObserver?.observe(composer);
         }
@@ -809,6 +838,7 @@
           restoreComposerSpace();
           observer.disconnect();
           resizeObserver?.disconnect();
+          observedNotices.clear();
           if (layoutFrame !== null) win.cancelAnimationFrame(layoutFrame);
           for (const timer of timers) win.clearTimeout(timer);
           timers.clear();

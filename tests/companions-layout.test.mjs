@@ -47,7 +47,7 @@ function browser(composers) {
   const timers = new Map();
   const observers = [];
   let nextId = 0;
-  const page = { composers, modals: [], popups: [] };
+  const page = { composers, modals: [], popups: [], notices: [] };
   const document = Object.assign(new Element(), {
     documentElement: new Element(),
     body: new Element(),
@@ -56,6 +56,7 @@ function browser(composers) {
     querySelectorAll(selector) {
       if (selector.includes('dialog[open]')) return page.modals;
       if (selector.includes('[role="menu"]')) return page.popups;
+      if (selector.includes('[data-companion-avoid]')) return page.notices;
       return page.composers;
     },
   });
@@ -150,6 +151,50 @@ test('hides for modal dialogs and overlapping popup controls, then restores', ()
   harness.page.modals[0].computed = { opacity: '0' };
   harness.mutate(); harness.flushMutation();
   assert.equal(shelf.style.visibility, 'visible');
+  instance.destroy();
+});
+
+test('moves above a composer notice rail and returns when the notice disappears', () => {
+  const composer = new Element(rectangle(100, 500));
+  const harness = browser([composer]);
+  const instance = install(harness, { characterWidth: 56, overlap: 3 });
+  const shelf = instance.host.shelf;
+  const bottom = () => Number.parseFloat(shelf.style.top) + Number.parseFloat(shelf.style.height);
+  assert.equal(bottom(), 503);
+  harness.page.notices = [new Element(rectangle(100, 460, 600, 40))];
+  harness.mutate(); harness.flushMutation();
+  assert.equal(bottom(), 454);
+  assert.equal(shelf.style.visibility, 'visible');
+  harness.page.notices[0].computed = { display: 'none' };
+  harness.mutate(); harness.flushMutation();
+  assert.equal(bottom(), 503);
+  assert.equal(composer.style.getPropertyValue('padding-top'), '');
+  instance.destroy();
+});
+
+test('avoids stacked notice rows while ignoring unrelated off-to-the-side content', () => {
+  const harness = browser([new Element(rectangle(100, 500))]);
+  const instance = install(harness, { characterWidth: 56, overlap: 3 });
+  const shelf = instance.host.shelf;
+  const bottom = () => Number.parseFloat(shelf.style.top) + Number.parseFloat(shelf.style.height);
+  harness.page.notices = [new Element(rectangle(0, 450, 80, 50))];
+  harness.mutate(); harness.flushMutation();
+  assert.equal(bottom(), 503);
+  harness.page.notices = [new Element(rectangle(100, 420, 600, 32)), new Element(rectangle(100, 460, 600, 40))];
+  harness.mutate(); harness.flushMutation();
+  assert.equal(bottom(), 414);
+  instance.destroy();
+});
+
+test('hides safely if a notice leaves no space above the composer', () => {
+  const harness = browser([new Element(rectangle(100, 60))]);
+  const instance = install(harness, { characterWidth: 56, overlap: 3 });
+  harness.page.notices = [new Element(rectangle(100, 20, 600, 40))];
+  harness.mutate(); harness.flushMutation();
+  assert.equal(instance.host.shelf.style.visibility, 'hidden');
+  harness.page.notices = [];
+  harness.mutate(); harness.flushMutation();
+  assert.equal(instance.host.shelf.style.visibility, 'visible');
   instance.destroy();
 });
 
